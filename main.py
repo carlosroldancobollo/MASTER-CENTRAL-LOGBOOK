@@ -32,7 +32,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text.startswith('+') or text.startswith('*'):
         trigger = text[0]              # '+' o '*'
         content = text[1:].strip()     # lo que viene después
-        db.append(trigger + content)   # guardamos sin el símbolo delante
+        db.append(trigger + content)
         save_db()
         await update.message.reply_text(f"✅ Guardado: {content}")
 
@@ -63,7 +63,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # --- ENVÍO AUTOMÁTICO A LAS 02:00 ---
 async def send_daily_summary(application):
     now = datetime.datetime.now()
-    today_str = now.strftime('%d %b').upper()  # p.ej., "31 JUL"
+    today_str = now.strftime('%d %b').upper()
     in_14_days_str = (now + datetime.timedelta(days=14)).strftime('%d %b').upper()
 
     try:
@@ -88,7 +88,6 @@ async def send_daily_summary(application):
     else:
         message += "\n\n🟢 No hay eventos importantes dentro de 14 días."
 
-    # Usa el primer chat_id conocido (lo guarda tras el primer mensaje recibido)
     if os.path.exists('chat_id.txt'):
         with open('chat_id.txt', 'r') as f:
             chat_id = f.read().strip()
@@ -115,7 +114,6 @@ def main():
 
     application = ApplicationBuilder().token(bot_token).build()
 
-    # Guarda el chat_id del primer mensaje recibido
     async def save_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = str(update.effective_chat.id)
         if not os.path.exists("chat_id.txt"):
@@ -123,12 +121,10 @@ def main():
                 f.write(chat_id)
         await handle_message(update, context)
 
-    # Handlers
     application.add_handler(CommandHandler('start', start))
     application.add_handler(CommandHandler('help', help_command))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), save_chat_id))
 
-    # Tarea programada diaria a las 02:00
     scheduler = BackgroundScheduler()
     scheduler.add_job(send_daily_summary, trigger='cron', hour=2, minute=0, args=[application])
     scheduler.start()
@@ -141,18 +137,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-from flask import Flask
-import threading
-
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Bot is running!"
-
-def run_flask():
-    app.run(host="0.0.0.0", port=10000)
-
-if __name__ == "__main__":
-    threading.Thread(target=run_flask).start()
-    main()  # <-- esta es tu función principal del bot
