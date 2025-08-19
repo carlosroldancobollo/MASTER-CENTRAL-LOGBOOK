@@ -50,13 +50,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text.startswith('-'):
         # Borrar
         keyword = text[1:].strip().lower()
-        original_count = len(db)
-        db = [item for item in db if keyword not in item.lower()]
-        removed_count = original_count - len(db)
+        # Primero identificar qué se va a borrar
+        items_to_remove = [item for item in db if keyword in item.lower()]
         
-        if removed_count > 0:
+        if items_to_remove:
+            # Quitar los elementos
+            db = [item for item in db if keyword not in item.lower()]
             save_db(db)
-            await update.message.reply_text(f"❌ Eliminados {removed_count} elementos")
+            
+            # Mostrar qué se borró
+            removed_text = "\n".join([f"• {item}" for item in items_to_remove])
+            await update.message.reply_text(f"❌ Borrado ({len(items_to_remove)} elementos):\n{removed_text}")
         else:
             await update.message.reply_text("❗ No encontré nada para borrar")
     
