@@ -121,7 +121,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             removed_text = "\n".join([f"• {item}" for item in items_to_remove])
             await update.message.reply_text(f"❌ Borrado ({len(items_to_remove)} elementos):\n{removed_text}", reply_markup=reply_markup)
         else:
-            await update.message.reply_text("❗ No encontré nada para borrar", reply_markup=reply_markup)
+            await update.message.reply_text("❗ No se ha encontrado nada para borrar", reply_markup=reply_markup)
     
     else:
         # Buscar
