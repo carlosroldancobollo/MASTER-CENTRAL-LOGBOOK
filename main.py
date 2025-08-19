@@ -2,7 +2,7 @@ import logging
 import json
 import os
 import threading
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 from flask import Flask
 
@@ -32,9 +32,25 @@ def save_db(data):
 # Cargar datos
 db = load_db()
 
+# Teclado personalizado
+keyboard = [
+    ['+', '-'],
+    ['/all', '/import'],
+    ['🔍 Buscar']
+]
+reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
+
 # Handlers del bot
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("📘 Bot iniciado. Usa + para guardar, - para borrar, o busca texto.")
+    await update.message.reply_text(
+        "📘 Bot iniciado. Usa los botones de abajo o escribe:\n"
+        "• + texto → guardar\n"
+        "• - palabra → borrar\n"
+        "• /all → ver todo\n"
+        "• /import → importar datos\n"
+        "• texto → buscar",
+        reply_markup=reply_markup
+    )
 
 async def import_old_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global db
@@ -48,22 +64,51 @@ async def import_old_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
             added_count += 1
     
     save_db(db)
-    await update.message.reply_text(f"📥 Importados {added_count} elementos de la base de datos antigua. Total: {len(db)} elementos.")
+async def show_all_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not db:
+        await update.message.reply_text("📭 Base de datos vacía", reply_markup=reply_markup)
+        return
+    
+    # Telegram tiene límite de 4096 caracteres por mensaje
+    items_text = "\n".join([f"{i+1}. {item}" for i, item in enumerate(db)])
+    
+    if len(items_text) <= 4000:  # Margen de seguridad
+        await update.message.reply_text(f"📋 Base de datos ({len(db)} elementos):\n\n{items_text}", reply_markup=reply_markup)
+    else:
+        # Si es muy largo, dividir en chunks
+        chunk_size = 3500
+        chunks = [items_text[i:i+chunk_size] for i in range(0, len(items_text), chunk_size)]
+        
+        for i, chunk in enumerate(chunks):
+            header = f"📋 Base de datos (parte {i+1}/{len(chunks)}):\n\n" if i == 0 else f"📋 Continuación (parte {i+1}/{len(chunks)}):\n\n"
+            await update.message.reply_text(header + chunk, reply_markup=reply_markup)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global db
     text = update.message.text.strip()
 
+    # Si pulsa el botón "🔍 Buscar", dar instrucciones
+    if text == "🔍 Buscar":
+        await update.message.reply_text("Escribe lo que quieres buscar:", reply_markup=reply_markup)
+        return
+
     if text.startswith('+'):
         # Guardar
         content = text[1:].strip()
+        if not content:
+            await update.message.reply_text("Escribe después del + lo que quieres guardar:", reply_markup=reply_markup)
+            return
         db.append(content)
         save_db(db)
-        await update.message.reply_text(f"✅ Guardado: {content}")
+        await update.message.reply_text(f"✅ Guardado: {content}", reply_markup=reply_markup)
     
     elif text.startswith('-'):
         # Borrar
         keyword = text[1:].strip().lower()
+        if not keyword:
+            await update.message.reply_text("Escribe después del - lo que quieres borrar:", reply_markup=reply_markup)
+            return
+        
         # Primero identificar qué se va a borrar
         items_to_remove = [item for item in db if keyword in item.lower()]
         
@@ -74,18 +119,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             # Mostrar qué se borró
             removed_text = "\n".join([f"• {item}" for item in items_to_remove])
-            await update.message.reply_text(f"❌ Borrado ({len(items_to_remove)} elementos):\n{removed_text}")
+            await update.message.reply_text(f"❌ Borrado ({len(items_to_remove)} elementos):\n{removed_text}", reply_markup=reply_markup)
         else:
-            await update.message.reply_text("❗ No encontré nada para borrar")
+            await update.message.reply_text("❗ No encontré nada para borrar", reply_markup=reply_markup)
     
     else:
         # Buscar
         results = [item for item in db if text.lower() in item.lower()]
         if results:
             response = "🔍 Encontrado:\n" + "\n".join(results[:10])  # Máximo 10 resultados
-            await update.message.reply_text(response)
+            await update.message.reply_text(response, reply_markup=reply_markup)
         else:
-            await update.message.reply_text("❓ No encontrado")
+            await update.message.reply_text("❓ No encontrado", reply_markup=reply_markup)
 
 # Flask para mantener vivo
 app = Flask(__name__)
@@ -111,6 +156,7 @@ def main():
     # Handlers
     app_bot.add_handler(CommandHandler("start", start))
     app_bot.add_handler(CommandHandler("import", import_old_data))
+    app_bot.add_handler(CommandHandler("all", show_all_data))
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     # Flask en background
