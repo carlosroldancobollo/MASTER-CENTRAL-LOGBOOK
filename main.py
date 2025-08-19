@@ -87,8 +87,8 @@ def main():
     if not bot_token:
         raise ValueError("BOT_TOKEN no encontrado")
     
-    # Crear aplicación
-    app_bot = ApplicationBuilder().token(bot_token).build()
+    # Crear aplicación SIN JobQueue
+    app_bot = ApplicationBuilder().token(bot_token).job_queue(None).build()
     
     # Handlers
     app_bot.add_handler(CommandHandler("start", start))
