@@ -2,7 +2,7 @@ import logging
 import json
 import os
 import threading
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 from flask import Flask
 
@@ -29,12 +29,107 @@ def save_db(data):
     except Exception as e:
         logger.error(f"Error saving: {e}")
 
-# Cargar datos
+# Cargar datos y estados de usuarios
 db = load_db()
+user_states = {}  # Para manejar estados de conversación
+
+# Teclado personalizado principal
+main_keyboard = [
+    ['/guardar', '/borrar'],
+    ['/all', '/import'],
+    ['🔍 Buscar']
+]
+main_reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True, one_time_keyboard=False)
+
+# Teclado para confirmación
+confirm_keyboard = [
+    ['/si', '/no']
+]
+confirm_reply_markup = ReplyKeyboardMarkup(confirm_keyboard, resize_keyboard=True, one_time_keyboard=False)
 
 # Handlers del bot
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("📘 Bot iniciado. Usa + para guardar, - para borrar, o busca texto.")
+    user_id = update.effective_user.id
+    user_states[user_id] = 'normal'
+    await update.message.reply_text(
+        "📘 Bienvenido/a. Use los comandos disponibles:\n\n"
+        "• /guardar → Guardar información\n"
+        "• /borrar → Eliminar información\n"
+        "• /all → Ver toda la base de datos\n"
+        "• /import → Importar datos antiguos\n"
+        "• Escribir texto → Buscar información",
+        reply_markup=main_reply_markup
+    )
+
+async def guardar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    user_states[user_id] = 'waiting_to_save'
+    await update.message.reply_text(
+        "¿Qué información desea guardar?",
+        reply_markup=ReplyKeyboardRemove()
+    )
+
+async def borrar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    user_states[user_id] = 'waiting_to_delete'
+    await update.message.reply_text(
+        "¿Qué información desea borrar?",
+        reply_markup=ReplyKeyboardRemove()
+    )
+
+async def si_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    if user_states.get(user_id) == 'confirming_delete' and 'delete_items' in context.user_data:
+        # Proceder con el borrado
+        items_to_delete = context.user_data['delete_items']
+        
+        global db
+        # Remover los elementos específicos
+        for item in items_to_delete:
+            if item in db:
+                db.remove(item)
+        save_db(db)
+        
+        # Mostrar qué se borró
+        if len(items_to_delete) == 1:
+            await update.message.reply_text(
+                f"✅ Borrado: \"{items_to_delete[0]}\"",
+                reply_markup=main_reply_markup
+            )
+        else:
+            deleted_text = "\n".join([f"• {item}" for item in items_to_delete])
+            await update.message.reply_text(
+                f"✅ Borrado ({len(items_to_delete)} elementos):\n{deleted_text}",
+                reply_markup=main_reply_markup
+            )
+        
+        # Limpiar estado
+        user_states[user_id] = 'normal'
+        context.user_data.clear()
+    else:
+        await update.message.reply_text(
+            "No hay ninguna acción pendiente de confirmación.",
+            reply_markup=main_reply_markup
+        )
+
+async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    if user_states.get(user_id) == 'confirming_delete':
+        # Volver a preguntar qué borrar
+        user_states[user_id] = 'waiting_to_delete'
+        await update.message.reply_text(
+            "¿Qué información desea borrar?",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        context.user_data.clear()
+    else:
+        user_states[user_id] = 'normal'
+        await update.message.reply_text(
+            "Operación cancelada.",
+            reply_markup=main_reply_markup
+        )
 
 async def import_old_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global db
@@ -48,44 +143,102 @@ async def import_old_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
             added_count += 1
     
     save_db(db)
-    await update.message.reply_text(f"📥 Importados {added_count} elementos de la base de datos antigua. Total: {len(db)} elementos.")
+    await update.message.reply_text(
+        f"📥 Se han importado {added_count} elementos de la base de datos antigua. Total: {len(db)} elementos.",
+        reply_markup=main_reply_markup
+    )
+
+async def show_all_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not db:
+        await update.message.reply_text("📭 La base de datos está vacía", reply_markup=main_reply_markup)
+        return
+    
+    # Telegram tiene límite de 4096 caracteres por mensaje
+    items_text = "\n".join([f"{i+1}. {item}" for i, item in enumerate(db)])
+    
+    if len(items_text) <= 4000:  # Margen de seguridad
+        await update.message.reply_text(
+            f"📋 Base de datos ({len(db)} elementos):\n\n{items_text}",
+            reply_markup=main_reply_markup
+        )
+    else:
+        # Si es muy largo, dividir en chunks
+        chunk_size = 3500
+        chunks = [items_text[i:i+chunk_size] for i in range(0, len(items_text), chunk_size)]
+        
+        for i, chunk in enumerate(chunks):
+            header = f"📋 Base de datos (parte {i+1}/{len(chunks)}):\n\n" if i == 0 else f"📋 Continuación (parte {i+1}/{len(chunks)}):\n\n"
+            if i == len(chunks) - 1:  # Última parte
+                await update.message.reply_text(header + chunk, reply_markup=main_reply_markup)
+            else:
+                await update.message.reply_text(header + chunk)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global db
+    user_id = update.effective_user.id
     text = update.message.text.strip()
-
-    if text.startswith('+'):
-        # Guardar
-        content = text[1:].strip()
-        db.append(content)
+    
+    current_state = user_states.get(user_id, 'normal')
+    
+    # Manejar estados específicos
+    if current_state == 'waiting_to_save':
+        # El usuario está enviando información para guardar
+        db.append(text)
         save_db(db)
-        await update.message.reply_text(f"✅ Guardado: {content}")
-    
-    elif text.startswith('-'):
-        # Borrar
-        keyword = text[1:].strip().lower()
-        # Primero identificar qué se va a borrar
-        items_to_remove = [item for item in db if keyword in item.lower()]
+        user_states[user_id] = 'normal'
+        await update.message.reply_text(
+            f"✅ Guardado: \"{text}\"",
+            reply_markup=main_reply_markup
+        )
         
-        if items_to_remove:
-            # Quitar los elementos
-            db = [item for item in db if keyword not in item.lower()]
-            save_db(db)
+    elif current_state == 'waiting_to_delete':
+        # El usuario está enviando información para borrar
+        # Buscar coincidencias exactas primero, luego parciales
+        exact_matches = [item for item in db if item.lower() == text.lower()]
+        partial_matches = [item for item in db if text.lower() in item.lower()]
+        
+        # Priorizar coincidencias exactas
+        items_to_delete = exact_matches if exact_matches else partial_matches
+        
+        if items_to_delete:
+            # Guardar información para confirmación
+            context.user_data['delete_items'] = items_to_delete
+            context.user_data['delete_text'] = text
+            user_states[user_id] = 'confirming_delete'
             
-            # Mostrar qué se borró
-            removed_text = "\n".join([f"• {item}" for item in items_to_remove])
-            await update.message.reply_text(f"❌ Borrado ({len(items_to_remove)} elementos):\n{removed_text}")
+            # Si hay coincidencia exacta, preguntar directamente
+            if exact_matches:
+                await update.message.reply_text(
+                    f"¿Desea borrar: \"{text}\"?",
+                    reply_markup=confirm_reply_markup
+                )
+            else:
+                # Si son coincidencias parciales, mostrar opciones
+                items_text = "\n".join([f"• {item}" for item in items_to_delete])
+                await update.message.reply_text(
+                    f"Se encontraron {len(items_to_delete)} elementos que coinciden con \"{text}\":\n{items_text}\n\n"
+                    f"¿Desea proceder con el borrado?",
+                    reply_markup=confirm_reply_markup
+                )
         else:
-            await update.message.reply_text("❗ No encontré nada para borrar")
+            await update.message.reply_text(
+                f"No se encontró ningún elemento que contenga \"{text}\"",
+                reply_markup=main_reply_markup
+            )
+            user_states[user_id] = 'normal'
     
+    elif text == "🔍 Buscar":
+        await update.message.reply_text("Escriba lo que desea buscar:", reply_markup=main_reply_markup)
+        
     else:
-        # Buscar
+        # Búsqueda normal
+        user_states[user_id] = 'normal'
         results = [item for item in db if text.lower() in item.lower()]
         if results:
-            response = "🔍 Encontrado:\n" + "\n".join(results[:10])  # Máximo 10 resultados
-            await update.message.reply_text(response)
+            response = "🔍 Resultados encontrados:\n" + "\n".join(results[:10])  # Máximo 10 resultados
+            await update.message.reply_text(response, reply_markup=main_reply_markup)
         else:
-            await update.message.reply_text("❓ No encontrado")
+            await update.message.reply_text("❓ No se encontraron resultados", reply_markup=main_reply_markup)
 
 # Flask para mantener vivo
 app = Flask(__name__)
@@ -110,6 +263,11 @@ def main():
     
     # Handlers
     app_bot.add_handler(CommandHandler("start", start))
+    app_bot.add_handler(CommandHandler("guardar", guardar_command))
+    app_bot.add_handler(CommandHandler("borrar", borrar_command))
+    app_bot.add_handler(CommandHandler("si", si_command))
+    app_bot.add_handler(CommandHandler("no", no_command))
+    app_bot.add_handler(CommandHandler("all", show_all_data))
     app_bot.add_handler(CommandHandler("import", import_old_data))
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
