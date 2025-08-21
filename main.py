@@ -43,7 +43,7 @@ reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyb
 # Handlers del bot
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "📘 Bot iniciado. Usa los botones de abajo o escribe:\n"
+        "📘 Bot iniciado. Use los botones de abajo o escriba:\n"
         "• + texto → guardar\n"
         "• - palabra → borrar\n"
         "• /all → ver todo\n"
@@ -89,14 +89,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Si pulsa el botón "🔍 Buscar", dar instrucciones
     if text == "🔍 Buscar":
-        await update.message.reply_text("Escribe lo que quieres buscar:", reply_markup=reply_markup)
+        await update.message.reply_text("Escriba lo que quiera buscar:", reply_markup=reply_markup)
         return
 
     if text.startswith('+'):
         # Guardar
         content = text[1:].strip()
         if not content:
-            await update.message.reply_text("Escribe después del + lo que quieres guardar:", reply_markup=reply_markup)
+            await update.message.reply_text("Escriba después del + lo que quiera guardar:", reply_markup=reply_markup)
             return
         db.append(content)
         save_db(db)
@@ -106,7 +106,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Borrar
         keyword = text[1:].strip().lower()
         if not keyword:
-            await update.message.reply_text("Escribe después del - lo que quieres borrar:", reply_markup=reply_markup)
+            await update.message.reply_text("Escriba después del - lo que quiera borrar:", reply_markup=reply_markup)
             return
         
         # Primero identificar qué se va a borrar
