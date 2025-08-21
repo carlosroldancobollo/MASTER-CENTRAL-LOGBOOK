@@ -245,11 +245,30 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return f"Bot activo - {len(db)} elementos en DB"
+    try:
+        return f"Bot activo - {len(db)} elementos en DB"
+    except:
+        return "Bot activo"
+
+@app.route('/health')
+def health():
+    try:
+        return {"status": "ok", "entries": len(db), "bot_running": True}
+    except:
+        return {"status": "ok", "bot_running": True}
 
 def run_flask():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    try:
+        port = int(os.environ.get("PORT", 10000))
+        logger.info(f"Iniciando Flask en puerto {port}")
+        app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
+    except Exception as e:
+        logger.error(f"Error en Flask: {e}")
+        # Reintentar en puerto alternativo
+        try:
+            app.run(host="0.0.0.0", port=8080, debug=False, use_reloader=False)
+        except Exception as e2:
+            logger.error(f"Error crítico en Flask: {e2}")
 
 # Main
 def main():
@@ -257,6 +276,8 @@ def main():
     bot_token = os.getenv('BOT_TOKEN')
     if not bot_token:
         raise ValueError("BOT_TOKEN no encontrado")
+    
+    logger.info("Iniciando aplicación...")
     
     # Crear aplicación SIN JobQueue
     app_bot = ApplicationBuilder().token(bot_token).job_queue(None).build()
@@ -271,14 +292,25 @@ def main():
     app_bot.add_handler(CommandHandler("import", import_old_data))
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    # Flask en background
-    flask_thread = threading.Thread(target=run_flask, daemon=True)
-    flask_thread.start()
+    logger.info("Handlers configurados")
     
-    logger.info("Bot iniciado")
+    # Flask en background
+    try:
+        flask_thread = threading.Thread(target=run_flask, daemon=True)
+        flask_thread.start()
+        logger.info("Flask thread iniciado")
+        
+        # Pequeña espera para que Flask arranque
+        import time
+        time.sleep(2)
+        
+    except Exception as e:
+        logger.error(f"Error iniciando Flask: {e}")
+    
+    logger.info("Iniciando bot polling...")
     
     # Ejecutar bot
-    app_bot.run_polling()
+    app_bot.run_polling(drop_pending_updates=True)
 
 if __name__ == '__main__':
     main()
