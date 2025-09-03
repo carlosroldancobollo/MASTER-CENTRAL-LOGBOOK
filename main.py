@@ -216,7 +216,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # Si son coincidencias parciales, mostrar opciones
                 items_text = "\n".join([f"• {item}" for item in items_to_delete])
                 await update.message.reply_text(
-                    f"Se encontraron {len(items_to_delete)} elementos que coinciden con \"{text}\":\n{items_text}\n\n"
+                    f"Se encontraron {len(items_to_delete)} elementos que coinciden con: \"{text}\":\n{items_text}\n\n"
                     f"¿Desea proceder con el borrado?",
                     reply_markup=confirm_reply_markup
                 )
