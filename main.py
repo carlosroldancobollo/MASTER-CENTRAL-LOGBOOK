@@ -2,6 +2,7 @@ import logging
 import json
 import os
 import threading
+from datetime import datetime
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 from flask import Flask
@@ -12,22 +13,46 @@ logger = logging.getLogger(__name__)
 
 # Base de datos simple
 DATA_FILE = 'logbook.json'
+BACKUP_DIR = 'backups'
 
 def load_db():
     if os.path.exists(DATA_FILE):
         try:
-            with open(DATA_FILE, 'r') as f:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
                 return json.load(f)
-        except:
+        except Exception as e:
+            logger.error(f"Error loading DB: {e}")
             return []
     return []
 
 def save_db(data):
     try:
-        with open(DATA_FILE, 'w') as f:
-            json.dump(data, f)
+        with open(DATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        logger.info(f"DB saved with {len(data)} items")
     except Exception as e:
-        logger.error(f"Error saving: {e}")
+        logger.error(f"Error saving DB: {e}")
+
+def create_backup():
+    """Crear backup de la base de datos"""
+    try:
+        # Crear directorio de backups si no existe
+        if not os.path.exists(BACKUP_DIR):
+            os.makedirs(BACKUP_DIR)
+        
+        # Nombre del backup con timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_file = os.path.join(BACKUP_DIR, f"backup_{timestamp}.json")
+        
+        # Copiar datos actuales al backup
+        with open(backup_file, 'w', encoding='utf-8') as f:
+            json.dump(db, f, ensure_ascii=False, indent=2)
+        
+        logger.info(f"Backup created: {backup_file}")
+        return backup_file
+    except Exception as e:
+        logger.error(f"Error creating backup: {e}")
+        return None
 
 # Cargar datos y estados de usuarios
 db = load_db()
@@ -36,8 +61,8 @@ user_states = {}  # Para manejar estados de conversación
 # Teclado personalizado principal
 main_keyboard = [
     ['/guardar', '/borrar'],
-    ['/all', '/import'],
-    ['🔍 Buscar']
+    ['/all', '/backup'],
+    ['/import', '🔍 Buscar']
 ]
 main_reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True, one_time_keyboard=False)
 
@@ -56,6 +81,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• /guardar → Guardar información\n"
         "• /borrar → Eliminar información\n"
         "• /all → Ver toda la base de datos\n"
+        "• /backup → Crear backup de seguridad\n"
         "• /import → Importar datos antiguos\n"
         "• Escribir texto → Buscar información",
         reply_markup=main_reply_markup
@@ -77,10 +103,30 @@ async def borrar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=ReplyKeyboardRemove()
     )
 
+async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Crear backup de la base de datos"""
+    backup_file = create_backup()
+    
+    if backup_file:
+        await update.message.reply_text(
+            f"✅ Backup creado exitosamente\n"
+            f"📁 Archivo: {os.path.basename(backup_file)}\n"
+            f"📊 {len(db)} elementos respaldados",
+            reply_markup=main_reply_markup
+        )
+    else:
+        await update.message.reply_text(
+            "❌ Error al crear el backup",
+            reply_markup=main_reply_markup
+        )
+
 async def si_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
     if user_states.get(user_id) == 'confirming_delete' and 'delete_items' in context.user_data:
+        # Crear backup antes de borrar
+        backup_file = create_backup()
+        
         # Proceder con el borrado
         items_to_delete = context.user_data['delete_items']
         
@@ -134,6 +180,9 @@ async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def import_old_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global db
     old_data = ["08 SEP Cumpleaños físico", "02 JUL Cumpleaños espiritual", "RUBI esta trabajando en montaje de escenarios en el wanda y montó el de acdc", "01 JAN Fiesta año nuevo", "06 JAN Fiesta de Reyes", "29 JAN Cumple ABUELOPACO", "30 JAN Cumple SACO", "09 FEB Cumple NORA", "12 FEB Cumple ANTONIO", "18 FEB Cumple BARBESA", "20 MAR Cumple REBECA", "29 MAR Cumple OLGA", "29 MAR Cumple PAQUI", "30 MAR Cumple ANA uf", "02 MAY Cumple MADRE", "24 MAY Cumple RUBI", "05 JUN Cumple HERMANO", "07 JUN Cumple PADRE", "12 JUL Cumple ABUELACHUS", "19 JUL Cumple WICHI", "22 JUL Cumple PAULA", "24 JUL Cumple VERA", "28 JUL Cumple ANGELSANTOS", "29 JUL Cumple MIKELSIUS", "15 AGO Cumple MIWI", "20 AGO Cumple AURELIO", "21 AGO Cumple ABBY", "23 AGO Cumple PABLEÑAS", "30 AGO Cumple ABUELOTOMAS", "09 SEP Cumple RODRO", "12 SEP Cumple ADRO", "22 SEP Cumple ABUELAMERI", "26 SEP Cumple CAMPER", "03 OCT Cumple VIWI", "17 OCT Cumple ISMA", "31 OCT Cumple MIKE", "03 NOV Cumple PABLOKODI", "09 NOV Cumple CESAR", "29 NOV Cumple TIOJOSE", "30 NOV Cumple ESPETO", "08 DEC Cumple LAURA", "25 DEC Cumple MARIN", "MIWI tiene una boda india de su prima en septiembre", "29 JUL Cumple HELENAPLANS", "24 JUN 2025 Muere la madre de ESPETO", "* 07 SEP 2023 Primer vuelo como cadete de piloto", "GOMEYO IRATI se va a francia el 21 AGO", "RUBI estuvo a finales de JUL en islas cíes de vacas", "LAURA cita a ciegas con un amigo de la novia de DIEGONAVARRO", "MIWI su hermano se quiere meter al ejercito, hizo pruebas sin preparar mucho pero no las paso", "ISMA trabajando en la residencia de la latina alto de extremadura. Su jefa maría es lesbiana que fuma y es una cabrona. No le gusta el ambiente entre compas y quiere hacer el master en algún momento", "06 AGO Cumple PORTI y PUCHIS", "PAULA se va a japon durante 21 dias en OCT", "MARINA ahora a finales de AGO le dicen si la han cogido de regidora en el rey leon", "HECTOR nombre hija candela", "+ VIWI esta a mediados de AGO en canada", "MIWI a mediados de AGO murio un hermano de su abuelo", "GOMEYO a mediados de AGO murio hermano abuela IRATI", "GOMEYO Cumple 01 APR", "ESPETO esta renovado en faunia hasta SEP", "NACHO hizo el C1 de ingles a mediados de AGO", "TIOJOSE pendiente de operacion de hernias en AGO", "ABUELACHUS pendiente de residencia", "MARTINAWI se fue de vacas la primera semana de AGO a gandia", "MARTINAWI se va el ultimo finde de AGO a ver a su novia a san sebastian"]
+    
+    # Crear backup antes de importar
+    create_backup()
     
     # Añadir los datos antiguos evitando duplicados
     added_count = 0
@@ -236,6 +285,10 @@ app = Flask(__name__)
 def home():
     return f"Bot activo - {len(db)} elementos en DB"
 
+@app.route('/health')
+def health():
+    return {"status": "ok", "db_items": len(db), "timestamp": datetime.now().isoformat()}
+
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
@@ -245,9 +298,10 @@ def main():
     # Token
     bot_token = os.getenv('BOT_TOKEN')
     if not bot_token:
-        raise ValueError("BOT_TOKEN no encontrado")
+        raise ValueError("BOT_TOKEN no encontrado en las variables de entorno")
     
     logger.info("Iniciando aplicación...")
+    logger.info(f"DB inicial: {len(db)} elementos")
     
     # Crear aplicación SIN JobQueue
     app_bot = ApplicationBuilder().token(bot_token).job_queue(None).build()
@@ -263,7 +317,7 @@ def main():
     app_bot.add_handler(CommandHandler("import", import_old_data))
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    logger.info("Handlers configurados")
+    logger.info("Handlers configurados correctamente")
     
     # Flask en background
     try:
@@ -281,7 +335,11 @@ def main():
     logger.info("Iniciando bot polling...")
     
     # Ejecutar bot
-    app_bot.run_polling(drop_pending_updates=True)
+    try:
+        app_bot.run_polling(drop_pending_updates=True)
+    except Exception as e:
+        logger.error(f"Error en bot polling: {e}")
+        raise
 
 if __name__ == '__main__':
     main()
