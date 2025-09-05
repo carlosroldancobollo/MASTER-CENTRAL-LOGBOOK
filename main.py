@@ -193,33 +193,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     elif current_state == 'waiting_to_delete':
         # El usuario está enviando información para borrar
-        # Buscar coincidencias exactas primero, luego parciales
-        exact_matches = [item for item in db if item.lower() == text.lower()]
-        partial_matches = [item for item in db if text.lower() in item.lower()]
-        
-        # Priorizar coincidencias exactas
-        items_to_delete = exact_matches if exact_matches else partial_matches
+        keyword = text.lower()
+        items_to_delete = [item for item in db if keyword in item.lower()]
         
         if items_to_delete:
             # Guardar información para confirmación
             context.user_data['delete_items'] = items_to_delete
-            context.user_data['delete_text'] = text
+            context.user_data['delete_keyword'] = keyword
             user_states[user_id] = 'confirming_delete'
             
-            # Si hay coincidencia exacta, preguntar directamente
-            if exact_matches:
-                await update.message.reply_text(
-                    f"¿Desea borrar: \"{text}\"?",
-                    reply_markup=confirm_reply_markup
-                )
-            else:
-                # Si son coincidencias parciales, mostrar opciones
-                items_text = "\n".join([f"• {item}" for item in items_to_delete])
-                await update.message.reply_text(
-                    f"Se encontraron {len(items_to_delete)} elementos que coinciden con: \"{text}\":\n{items_text}\n\n"
-                    f"¿Desea proceder con el borrado?",
-                    reply_markup=confirm_reply_markup
-                )
+            # Mostrar qué se encontró y pedir confirmación
+            items_text = "\n".join([f"• {item}" for item in items_to_delete])
+            await update.message.reply_text(
+                f"Se encontraron {len(items_to_delete)} elementos que coinciden:\n{items_text}\n\n"
+                f"¿Desea proceder con el borrado?",
+                reply_markup=confirm_reply_markup
+            )
         else:
             await update.message.reply_text(
                 f"No se encontró ningún elemento que contenga \"{text}\"",
@@ -245,30 +234,11 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    try:
-        return f"Bot activo - {len(db)} elementos en DB"
-    except:
-        return "Bot activo"
-
-@app.route('/health')
-def health():
-    try:
-        return {"status": "ok", "entries": len(db), "bot_running": True}
-    except:
-        return {"status": "ok", "bot_running": True}
+    return f"Bot activo - {len(db)} elementos en DB"
 
 def run_flask():
-    try:
-        port = int(os.environ.get("PORT", 10000))
-        logger.info(f"Iniciando Flask en puerto {port}")
-        app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
-    except Exception as e:
-        logger.error(f"Error en Flask: {e}")
-        # Reintentar en puerto alternativo
-        try:
-            app.run(host="0.0.0.0", port=8080, debug=False, use_reloader=False)
-        except Exception as e2:
-            logger.error(f"Error crítico en Flask: {e2}")
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port, debug=False)
 
 # Main
 def main():
@@ -289,6 +259,7 @@ def main():
     app_bot.add_handler(CommandHandler("si", si_command))
     app_bot.add_handler(CommandHandler("no", no_command))
     app_bot.add_handler(CommandHandler("all", show_all_data))
+    app_bot.add_handler(CommandHandler("backup", backup_command))
     app_bot.add_handler(CommandHandler("import", import_old_data))
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
