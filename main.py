@@ -77,7 +77,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_states[user_id] = 'normal'
     await update.message.reply_text(
-        "📘 Bienvenido/a. Use los comandos disponibles:\n\n"
+        "📘 Bienvenido. Use los comandos disponibles:\n\n"
         "• /guardar → Guardar información\n"
         "• /borrar → Eliminar información\n"
         "• /all → Ver toda la base de datos\n"
@@ -179,7 +179,87 @@ async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def import_old_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global db
-    old_data = ["08 SEP Cumpleaños físico", "02 JUL Cumpleaños espiritual", "RUBI esta trabajando en montaje de escenarios en el wanda y montó el de acdc", "01 JAN Fiesta año nuevo", "06 JAN Fiesta de Reyes", "29 JAN Cumple ABUELOPACO", "30 JAN Cumple SACO", "09 FEB Cumple NORA", "12 FEB Cumple ANTONIO", "18 FEB Cumple BARBESA", "20 MAR Cumple REBECA", "29 MAR Cumple OLGA", "29 MAR Cumple PAQUI", "30 MAR Cumple ANA uf", "02 MAY Cumple MADRE", "24 MAY Cumple RUBI", "05 JUN Cumple HERMANO", "07 JUN Cumple PADRE", "12 JUL Cumple ABUELACHUS", "19 JUL Cumple WICHI", "22 JUL Cumple PAULA", "24 JUL Cumple VERA", "28 JUL Cumple ANGELSANTOS", "29 JUL Cumple MIKELSIUS", "15 AGO Cumple MIWI", "20 AGO Cumple AURELIO", "21 AGO Cumple ABBY", "23 AGO Cumple PABLEÑAS", "30 AGO Cumple ABUELOTOMAS", "09 SEP Cumple RODRO", "12 SEP Cumple ADRO", "22 SEP Cumple ABUELAMERI", "26 SEP Cumple CAMPER", "03 OCT Cumple VIWI", "17 OCT Cumple ISMA", "31 OCT Cumple MIKE", "03 NOV Cumple PABLOKODI", "09 NOV Cumple CESAR", "29 NOV Cumple TIOJOSE", "30 NOV Cumple ESPETO", "08 DEC Cumple LAURA", "25 DEC Cumple MARIN", "MIWI tiene una boda india de su prima en septiembre", "29 JUL Cumple HELENAPLANS", "24 JUN 2025 Muere la madre de ESPETO", "* 07 SEP 2023 Primer vuelo como cadete de piloto", "GOMEYO IRATI se va a francia el 21 AGO", "RUBI estuvo a finales de JUL en islas cíes de vacas", "LAURA cita a ciegas con un amigo de la novia de DIEGONAVARRO", "MIWI su hermano se quiere meter al ejercito, hizo pruebas sin preparar mucho pero no las paso", "ISMA trabajando en la residencia de la latina alto de extremadura. Su jefa maría es lesbiana que fuma y es una cabrona. No le gusta el ambiente entre compas y quiere hacer el master en algún momento", "06 AGO Cumple PORTI y PUCHIS", "PAULA se va a japon durante 21 dias en OCT", "MARINA ahora a finales de AGO le dicen si la han cogido de regidora en el rey leon", "HECTOR nombre hija candela", "+ VIWI esta a mediados de AGO en canada", "MIWI a mediados de AGO murio un hermano de su abuelo", "GOMEYO a mediados de AGO murio hermano abuela IRATI", "GOMEYO Cumple 01 APR", "ESPETO esta renovado en faunia hasta SEP", "NACHO hizo el C1 de ingles a mediados de AGO", "TIOJOSE pendiente de operacion de hernias en AGO", "ABUELACHUS pendiente de residencia", "MARTINAWI se fue de vacas la primera semana de AGO a gandia", "MARTINAWI se va el ultimo finde de AGO a ver a su novia a san sebastian"]
+    old_data = [
+        "08 SEP Cumpleaños físico",
+        "02 JUL Cumpleaños espiritual",
+        "RUBI esta trabajando en montaje de escenarios en el wanda y montó el de acdc",
+        "01 JAN Fiesta año nuevo",
+        "06 JAN Fiesta de Reyes",
+        "29 JAN Cumple ABUELOPACO",
+        "30 JAN Cumple SACO",
+        "09 FEB Cumple NORA",
+        "12 FEB Cumple ANTONIO",
+        "18 FEB Cumple BARBESA",
+        "20 MAR Cumple REBECA",
+        "29 MAR Cumple OLGA",
+        "29 MAR Cumple PAQUI",
+        "30 MAR Cumple ANA uf",
+        "02 MAY Cumple MADRE",
+        "24 MAY Cumple RUBI",
+        "05 JUN Cumple HERMANO",
+        "07 JUN Cumple PADRE",
+        "12 JUL Cumple ABUELACHUS",
+        "19 JUL Cumple WICHI",
+        "22 JUL Cumple PAULA",
+        "24 JUL Cumple VERA",
+        "28 JUL Cumple ANGELSANTOS",
+        "29 JUL Cumple MIKELSIUS",
+        "15 AGO Cumple MIWI",
+        "20 AGO Cumple AURELIO",
+        "21 AGO Cumple ABBY",
+        "23 AGO Cumple PABLEÑAS",
+        "30 AGO Cumple ABUELOTOMAS",
+        "09 SEP Cumple RODRO",
+        "12 SEP Cumple ADRO",
+        "22 SEP Cumple ABUELAMERI",
+        "26 SEP Cumple CAMPER",
+        "03 OCT Cumple VIWI",
+        "17 OCT Cumple ISMA",
+        "31 OCT Cumple MIKE",
+        "03 NOV Cumple PABLOKODI",
+        "09 NOV Cumple CESAR",
+        "29 NOV Cumple TIOJOSE",
+        "30 NOV Cumple ESPETO",
+        "08 DEC Cumple LAURA",
+        "25 DEC Cumple MARIN",
+        "MIWI tiene una boda india de su prima en septiembre",
+        "29 JUL Cumple HELENAPLANS",
+        "24 JUN 2025 Muere la madre de ESPETO",
+        "* 07 SEP 2023 Primer vuelo como cadete de piloto",
+        "GOMEYO IRATI se va a francia el 21 AGO",
+        "RUBI estuvo a finales de JUL en islas cíes de vacas",
+        "LAURA cita a ciegas con un amigo de la novia de DIEGONAVARRO",
+        "MIWI su hermano se quiere meter al ejercito, hizo pruebas sin preparar mucho pero no las paso",
+        "ISMA trabajando en la residencia de la latina alto de extremadura. Su jefa maría es lesbiana que fuma y es una cabrona. No le gusta el ambiente entre compas y quiere hacer el master en algún momento",
+        "06 AGO Cumple PORTI y PUCHIS",
+        "PAULA se va a japon durante 21 dias en OCT",
+        "MARINA ahora a finales de AGO le dicen si la han cogido de regidora en el rey leon",
+        "HECTOR nombre hija candela",
+        "MIWI a mediados de AGO murio un hermano de su abuelo",
+        "GOMEYO a mediados de AGO murio hermano abuela IRATI",
+        "GOMEYO Cumple 01 APR",
+        "ESPETO esta renovado en faunia hasta SEP",
+        "NACHO hizo el C1 de ingles a mediados de AGO",
+        "TIOJOSE pendiente de operacion de hernias en AGO",
+        "ABUELACHUS pendiente de residencia",
+        "MARTINAWI se fue de vacas la primera semana de AGO a gandia",
+        "MARTINAWI se va el ultimo finde de AGO a ver a su novia a san sebastian",
+        "VIWI esta a mediados de AGO en canada",
+        "LAURA busca hacer opos para guardia forestal mejor que para seprona",
+        "PAULA a japon del 25 OCT al 14 NOV",
+        "PAULA patinaje hielo federada, competiciones por españa, especialmente logroño",
+        "PAULA escucha podcast la ruina para comer y comparte cuentas de aprime, netf y hbo con su padre y madre",
+        "CESAR en SEP comienza musta de aeropuertos, dividido en dos años para compatibilizar ineco",
+        "CESAR hermana PATRI comienza modulo de enfermeria",
+        "MIWI pedir contar relato",
+        "MARINA contratada de regidora en elreyleon de mie a dom",
+        "VIWI montreal su ciudad top 2 internac",
+        "HELENAPLANS comienza en SEP trabajo de analista de datos en bcn",
+        "HELENAPLANS se va a comprar un piso con su novio a finales 2025",
+        "VIWI en canada premio a mejor investigacion estudiante",
+        "MARINA abuelos joseangel y gelines, tios leandro y adriana taller de hidricos en ordaliegu",
+        "PIWI con 11 asignaturas curso 25-26 busca equilibrio entre estudios y gym"
+    ]
     
     # Crear backup antes de importar
     create_backup()
