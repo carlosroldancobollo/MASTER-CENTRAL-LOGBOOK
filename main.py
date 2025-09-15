@@ -257,7 +257,7 @@ async def import_old_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "HELENAPLANS comienza en SEP trabajo de analista de datos en bcn",
         "HELENAPLANS se va a comprar un piso con su novio a finales 2025",
         "VIWI en canada premio a mejor investigacion estudiante",
-        "MARINA abuelos joseangel y gelines, tios leandro y adriana taller de hidricos en ordaliegu",
+        "MARINA abuelos joseangel y gelines, tios leandro y adriana taller de hidricos en Ordaliegu",
         "PIWI con 11 asignaturas curso 25-26 busca equilibrio entre estudios y gym"
     ]
     
