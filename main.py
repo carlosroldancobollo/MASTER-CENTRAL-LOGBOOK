@@ -101,7 +101,7 @@ INITIAL_DATA = [
     "MARTIN se va el 17 SEP a monaco con sus padres por trabajo",
     "PAULA apuntada al conservatorio de musica de pinto con violin",
     "CARLOTA Conflicto: enganchada emocionalmente, conducta agresiva y posesiva. Escalada de agresividad y comportamiento toxico. Conducta toxica sostenida. Señales de control, manipulacion y agresividad. Baja tolerancia ala frustracio . Necesidad constante de validacion interna. Reaccion impulsiva y emocional. Ataque de celos",
-    "RECETA Sopa de ajo: Coger tres o 4 cabezas de ajo y freir con bastante aceite. Que se sumerjan. Dorandose se echan los teozos de pan durom remover un poco y echar 2 cucharadas de pimenton, remover y echar un huevo. Remover y echar agua a tope. Despues echar sal. Dejar ahi un rato y echar 2 o 3 cucharas grandes de almendra molida. Dejar que hierva y echarle 2huevos"
+    "RECETA Sopa de ajo: Coger 3 o 4 cabezas de ajo y freir con bastante aceite. Que se sumerjan. Dorandose se echan los teozos de pan durom remover un poco y echar 2 cucharadas de pimenton, remover y echar un huevo. Remover y echar agua a tope. Despues echar sal. Dejar ahi un rato y echar 2 o 3 cucharas grandes de almendra molida. Dejar que hierva y echarle 2huevos"
 ]
 
 def load_db():
