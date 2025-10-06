@@ -79,7 +79,6 @@ INITIAL_DATA = [
     "MIWI a mediados de AGO murio un hermano de su abuelo",
     "GOMEYO a mediados de AGO murio hermano abuela IRATI",
     "GOMEYO Cumple 01 APR",
-    "ESPETO esta renovado en faunia hasta SEP",
     "NACHO hizo el C1 de ingles a mediados de AGO",
     "TIOJOSE pendiente de operacion de hernias en AGO",
     "ABUELACHUS pendiente de residencia",
@@ -97,11 +96,27 @@ INITIAL_DATA = [
     "VIWI en canada premio a mejor investigacion estudiante",
     "MARINA abuelos joseangel y gelines, tios leandro y adriana taller de hidricos en Ordaliegu",
     "PIWI con 11 asignaturas curso 25-26 busca equilibrio entre estudios y gym",
-    "PAQUI empieza en SEP clases de piano los viernes por la tarde",
     "MARTIN se va el 17 SEP a monaco con sus padres por trabajo",
-    "PAULA apuntada al conservatorio de musica de pinto con violin",
     "CARLOTA Conflicto: enganchada emocionalmente, conducta agresiva y posesiva. Escalada de agresividad y comportamiento toxico. Conducta toxica sostenida. Señales de control, manipulacion y agresividad. Baja tolerancia ala frustracio . Necesidad constante de validacion interna. Reaccion impulsiva y emocional. Ataque de celos",
-    "RECETA Sopa de ajo: Coger tres o 4 cabezas de ajo y freir con bastante aceite. Que se sumerjan. Dorandose se echan los teozos de pan durom remover un poco y echar 2 cucharadas de pimenton, remover y echar un huevo. Remover y echar agua a tope. Despues echar sal. Dejar ahi un rato y echar 2 o 3 cucharas grandes de almendra molida. Dejar que hierva y echarle 2huevos"
+    "RECETA Sopa de ajo: Coger tres o 4 cabezas de ajo y freir con bastante aceite. Que se sumerjan. Dorandose se echan los teozos de pan durom remover un poco y echar 2 cucharadas de pimenton, remover y echar un huevo. Remover y echar agua a tope. Despues echar sal. Dejar ahi un rato y echar 2 o 3 cucharas grandes de almendra molida. Dejar que hierva y echarle 2huevos",
+    "RUBI trabajando en la UAM",
+    "ISMA le despidieron a mediados SEP porque la baja que cubría se acabó",
+    "ISMA busando hacer master de trabajo social",
+    "ESPETO empieza en SEP academia para preparar opos de profe de bio en OCT del 2027",
+    "MIKE en practicas hizo una eutanasia a un conejo",
+    "EFNOTEBOOK recordar pasar after t.o. checklist en w",
+    "EFNOTEBOOK PBN para LNAV poner VNV antes de TOD y luego ir descendiendo con VS la que aparezca en la parta. Para LNAV/VNAV armar el modo APR tambien para que lleve el modo vertical",
+    "EFNOTEBOOK con AP climb con FLC para ascender a 110kts y descenso a VS con la requerida",
+    "ADRO no se va a granada y ahora busca trabajo",
+    "HELENAPLANS su trabajo de analista contenta, los compis guays y mucho teletrabajo. Su jefe no va a la ofi en mas de un año. Bastante flexible",
+    "MARIONA le encanta el entrecot miy poco hecho",
+    "PORTI empieza bachiller de adultos el 27 SEP",
+    "PORTI tiene compa de piso hasta diciembre que estudia mecanica aeronautica",
+    "LAURA se va a sacar el carnet de moto",
+    "LAURA hablando y quedó con pablo, que conocio en capi. Esta en alemania haciendo una mision y no le responde al movil",
+    "PAULA conservatorio de musica pinto, violin con su profe de toda la vida y tres personas mas tocan individual y en conjunto",
+    "PAQUI va a clases de piano los viernes por la tarde, estudia lenguaje musical y practica con piano. En casa teclado de paula",
+    "VIWI se va a su pueblo de palencia a vivir durante OCT y NOV. Quiere desconectar y vivir el duelo de su padre"
 ]
 
 def load_db():
