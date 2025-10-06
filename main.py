@@ -101,7 +101,7 @@ INITIAL_DATA = [
     "MARTIN se va el 17 SEP a monaco con sus padres por trabajo",
     "PAULA apuntada al conservatorio de musica de pinto con violin",
     "CARLOTA Conflicto: enganchada emocionalmente, conducta agresiva y posesiva. Escalada de agresividad y comportamiento toxico. Conducta toxica sostenida. Señales de control, manipulacion y agresividad. Baja tolerancia ala frustracio . Necesidad constante de validacion interna. Reaccion impulsiva y emocional. Ataque de celos",
-    "RECETA Sopa de ajo: Coger 3 o 4 cabezas de ajo y freir con bastante aceite. Que se sumerjan. Dorandose se echan los teozos de pan durom remover un poco y echar 2 cucharadas de pimenton, remover y echar un huevo. Remover y echar agua a tope. Despues echar sal. Dejar ahi un rato y echar 2 o 3 cucharas grandes de almendra molida. Dejar que hierva y echarle 2huevos"
+    "RECETA Sopa de ajo: Coger tres o 4 cabezas de ajo y freir con bastante aceite. Que se sumerjan. Dorandose se echan los teozos de pan durom remover un poco y echar 2 cucharadas de pimenton, remover y echar un huevo. Remover y echar agua a tope. Despues echar sal. Dejar ahi un rato y echar 2 o 3 cucharas grandes de almendra molida. Dejar que hierva y echarle 2huevos"
 ]
 
 def load_db():
@@ -225,8 +225,9 @@ if should_auto_commit():
 # Teclado personalizado principal
 main_keyboard = [
     ['/guardar', '/borrar'],
-    ['/all', '/backup'],
-    ['/restore', '🔍 Buscar']
+    ['/all', '/export'],
+    ['/backup', '/restore'],
+    ['🔍 Buscar']
 ]
 main_reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True, one_time_keyboard=False)
 
@@ -245,8 +246,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Comandos disponibles:\n"
         "• /guardar → Guardar información\n"
         "• /borrar → Eliminar información\n"
-        "• /all → Ver toda la base de datos\n"
-        "• /backup → Crear backup de seguridad\n"
+        "• /all → Ver DB (formato para script)\n"
+        "• /backup → Backup completo\n"
+        "• /export → Exportar para script\n"
         "• /restore → Restaurar desde backup\n"
         "• Escribir texto → Buscar información\n\n"
         f"📊 Base de datos actual: {len(db)} elementos",
@@ -270,8 +272,9 @@ async def borrar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Crear backup de la base de datos y enviarlo por Telegram"""
+    """Backup completo: archivo JSON + formato para script"""
     try:
+        # 1. Crear y enviar archivo JSON
         backup_file = create_backup()
         
         if backup_file and os.path.exists(backup_file):
@@ -279,25 +282,38 @@ async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_document(
                     document=file,
                     filename=f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                    caption=f"📋 Backup de base de datos\n📊 {len(db)} elementos\n🕐 {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+                    caption=f"📋 Backup JSON\n📊 {len(db)} elementos\n🕐 {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
                 )
-            
+        
+        # 2. Enviar formato para copiar al script
+        code_format = "INITIAL_DATA = [\n"
+        for item in db:
+            escaped_item = item.replace('"', '\\"')
+            code_format += f'    "{escaped_item}",\n'
+        code_format = code_format.rstrip(',\n') + '\n]'
+        
+        if len(code_format) <= 4000:
             await update.message.reply_text(
-                f"✅ Backup enviado por Telegram\n"
-                f"📊 {len(db)} elementos respaldados\n"
-                f"💡 Guarda este archivo en un lugar seguro",
+                f"💾 **BACKUP - FORMATO PARA SCRIPT**\n"
+                f"📊 {len(db)} elementos\n"
+                f"📝 Copia esto al script main.py:\n\n"
+                f"```python\n{code_format}\n```",
+                parse_mode='Markdown',
                 reply_markup=main_reply_markup
             )
         else:
             await update.message.reply_text(
-                "❌ Error al crear el backup",
+                f"✅ Backup JSON enviado\n"
+                f"📊 {len(db)} elementos\n"
+                f"⚠️ Base de datos muy grande\n"
+                f"💡 Usa /all para ver el formato completo",
                 reply_markup=main_reply_markup
             )
             
     except Exception as e:
         logger.error(f"Error en backup_command: {e}")
         await update.message.reply_text(
-            "❌ Error al enviar el backup",
+            "❌ Error al crear el backup",
             reply_markup=main_reply_markup
         )
 
@@ -413,28 +429,88 @@ async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=main_reply_markup
         )
 
-async def show_all_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Exportar base de datos en formato listo para copiar al script"""
     if not db:
         await update.message.reply_text("📭 La base de datos está vacía", reply_markup=main_reply_markup)
         return
     
-    items_text = "\n".join([f"{i+1}. {item}" for i, item in enumerate(db)])
+    await update.message.reply_text(
+        f"📤 Exportando {len(db)} elementos...\n"
+        f"📋 Formato listo para copiar al script",
+        reply_markup=main_reply_markup
+    )
     
-    if len(items_text) <= 4000:
+    # Llamar a show_all_data que ya tiene el formato correcto
+    await show_all_data(update, context)
+
+async def show_all_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Mostrar base de datos en formato listo para copiar al script"""
+    if not db:
+        await update.message.reply_text("📭 La base de datos está vacía", reply_markup=main_reply_markup)
+        return
+    
+    # Crear formato listo para copiar al script
+    code_format = "INITIAL_DATA = [\n"
+    for item in db:
+        # Escapar comillas dobles
+        escaped_item = item.replace('"', '\\"')
+        code_format += f'    "{escaped_item}",\n'
+    code_format = code_format.rstrip(',\n') + '\n]'
+    
+    # Dividir en chunks si es muy largo
+    if len(code_format) <= 4000:
         await update.message.reply_text(
-            f"📋 Base de datos ({len(db)} elementos):\n\n{items_text}",
+            f"📋 **BASE DE DATOS - FORMATO PARA SCRIPT**\n"
+            f"📊 Total: {len(db)} elementos\n"
+            f"📝 Copia todo desde INITIAL_DATA hasta el ] final\n\n"
+            f"```python\n{code_format}\n```",
+            parse_mode='Markdown',
             reply_markup=main_reply_markup
         )
     else:
+        # Dividir en partes
         chunk_size = 3500
-        chunks = [items_text[i:i+chunk_size] for i in range(0, len(items_text), chunk_size)]
+        chunks = []
+        current_chunk = "INITIAL_DATA = [\n"
         
-        for i, chunk in enumerate(chunks):
-            header = f"📋 Base de datos (parte {i+1}/{len(chunks)}):\n\n" if i == 0 else f"📋 Continuación (parte {i+1}/{len(chunks)}):\n\n"
-            if i == len(chunks) - 1:
-                await update.message.reply_text(header + chunk, reply_markup=main_reply_markup)
+        for i, item in enumerate(db):
+            escaped_item = item.replace('"', '\\"')
+            line = f'    "{escaped_item}",\n'
+            
+            if len(current_chunk) + len(line) > chunk_size:
+                chunks.append(current_chunk)
+                current_chunk = line
             else:
-                await update.message.reply_text(header + chunk)
+                current_chunk += line
+        
+        # Último chunk
+        if current_chunk:
+            chunks.append(current_chunk.rstrip(',\n') + '\n]')
+        
+        # Enviar chunks
+        for i, chunk in enumerate(chunks):
+            if i == 0:
+                await update.message.reply_text(
+                    f"📋 **PARTE {i+1}/{len(chunks)}**\n"
+                    f"📊 Total: {len(db)} elementos\n"
+                    f"📝 Copia TODAS las partes en orden\n\n"
+                    f"```python\n{chunk}\n```",
+                    parse_mode='Markdown'
+                )
+            elif i == len(chunks) - 1:
+                await update.message.reply_text(
+                    f"📋 **PARTE {i+1}/{len(chunks)} - FINAL**\n\n"
+                    f"```python\n{chunk}\n```",
+                    parse_mode='Markdown',
+                    reply_markup=main_reply_markup
+                )
+            else:
+                await update.message.reply_text(
+                    f"📋 **PARTE {i+1}/{len(chunks)}**\n\n"
+                    f"```python\n{chunk}\n```",
+                    parse_mode='Markdown'
+                )
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global db
@@ -556,6 +632,7 @@ def main():
     app_bot.add_handler(CommandHandler("si", si_command))
     app_bot.add_handler(CommandHandler("no", no_command))
     app_bot.add_handler(CommandHandler("all", show_all_data))
+    app_bot.add_handler(CommandHandler("export", export_command))
     app_bot.add_handler(CommandHandler("backup", backup_command))
     app_bot.add_handler(CommandHandler("restore", restore_command))
     app_bot.add_handler(MessageHandler(filters.Document.ALL, handle_document))
