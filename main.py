@@ -261,7 +261,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Comandos disponibles:\n"
         "• /guardar → Guardar información\n"
         "• /borrar → Eliminar información\n"
-        "• /all → Ver DB (formato para script)\n"
+        "• /all → Ver toda la base de datos\n"
+        "• /export → Exportar formato script\n"
         "• /backup → Backup completo\n"
         "• /export → Exportar para script\n"
         "• /restore → Restaurar desde backup\n"
@@ -287,43 +288,35 @@ async def borrar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Backup completo: archivo JSON + formato para script"""
+    """Crear backup JSON con formato MMDDHHMM"""
     try:
-        # 1. Crear y enviar archivo JSON
-        backup_file = create_backup()
+        # Crear nombre de archivo con formato MMDDHHMM
+        timestamp = datetime.now().strftime("%m%d%H%M")
+        backup_filename = f"backup_{timestamp}.json"
         
-        if backup_file and os.path.exists(backup_file):
-            with open(backup_file, 'rb') as file:
-                await update.message.reply_document(
-                    document=file,
-                    filename=f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                    caption=f"📋 Backup JSON\n📊 {len(db)} elementos\n🕐 {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-                )
+        # Crear directorio si no existe
+        if not os.path.exists(BACKUP_DIR):
+            os.makedirs(BACKUP_DIR)
         
-        # 2. Enviar formato para copiar al script
-        code_format = "INITIAL_DATA = [\n"
-        for item in db:
-            escaped_item = item.replace('"', '\\"')
-            code_format += f'    "{escaped_item}",\n'
-        code_format = code_format.rstrip(',\n') + '\n]'
+        backup_path = os.path.join(BACKUP_DIR, backup_filename)
         
-        if len(code_format) <= 4000:
-            await update.message.reply_text(
-                f"💾 **BACKUP - FORMATO PARA SCRIPT**\n"
-                f"📊 {len(db)} elementos\n"
-                f"📝 Copia esto al script main.py:\n\n"
-                f"```python\n{code_format}\n```",
-                parse_mode='Markdown',
-                reply_markup=main_reply_markup
+        # Guardar backup
+        with open(backup_path, 'w', encoding='utf-8') as f:
+            json.dump(db, f, ensure_ascii=False, indent=2)
+        
+        # Enviar archivo
+        with open(backup_path, 'rb') as file:
+            await update.message.reply_document(
+                document=file,
+                filename=backup_filename,
+                caption=f"💾 Backup creado\n📊 {len(db)} elementos\n🕐 {datetime.now().strftime('%d/%m/%Y %H:%M')}"
             )
-        else:
-            await update.message.reply_text(
-                f"✅ Backup JSON enviado\n"
-                f"📊 {len(db)} elementos\n"
-                f"⚠️ Base de datos muy grande\n"
-                f"💡 Usa /all para ver el formato completo",
-                reply_markup=main_reply_markup
-            )
+        
+        await update.message.reply_text(
+            f"✅ Backup guardado como: {backup_filename}\n"
+            f"📁 Guarda este archivo para restaurar",
+            reply_markup=main_reply_markup
+        )
             
     except Exception as e:
         logger.error(f"Error en backup_command: {e}")
@@ -444,23 +437,38 @@ async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=main_reply_markup
         )
 
-async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Exportar base de datos en formato listo para copiar al script"""
+async def show_all_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Mostrar base de datos numerada para lectura fácil"""
     if not db:
         await update.message.reply_text("📭 La base de datos está vacía", reply_markup=main_reply_markup)
         return
     
-    await update.message.reply_text(
-        f"📤 Exportando {len(db)} elementos...\n"
-        f"📋 Formato listo para copiar al script",
-        reply_markup=main_reply_markup
-    )
+    # Formato numerado para lectura fácil
+    items_text = "\n".join([f"{i+1}. {item}" for i, item in enumerate(db)])
     
-    # Llamar a show_all_data que ya tiene el formato correcto
-    await show_all_data(update, context)
+    if len(items_text) <= 4000:
+        await update.message.reply_text(
+            f"📋 Base de datos ({len(db)} elementos):\n\n{items_text}",
+            reply_markup=main_reply_markup
+        )
+    else:
+        # Dividir en chunks
+        chunk_size = 3500
+        chunks = [items_text[i:i+chunk_size] for i in range(0, len(items_text), chunk_size)]
+        
+        for i, chunk in enumerate(chunks):
+            if i == 0:
+                header = f"📋 Base de datos (parte {i+1}/{len(chunks)}):\n\n"
+            else:
+                header = f"📋 Continuación (parte {i+1}/{len(chunks)}):\n\n"
+            
+            if i == len(chunks) - 1:
+                await update.message.reply_text(header + chunk, reply_markup=main_reply_markup)
+            else:
+                await update.message.reply_text(header + chunk)
 
-async def show_all_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Mostrar base de datos en formato listo para copiar al script"""
+async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Exportar base de datos en formato listo para copiar al script"""
     if not db:
         await update.message.reply_text("📭 La base de datos está vacía", reply_markup=main_reply_markup)
         return
@@ -468,7 +476,6 @@ async def show_all_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Crear formato listo para copiar al script
     code_format = "INITIAL_DATA = [\n"
     for item in db:
-        # Escapar comillas dobles
         escaped_item = item.replace('"', '\\"')
         code_format += f'    "{escaped_item}",\n'
     code_format = code_format.rstrip(',\n') + '\n]'
@@ -476,7 +483,7 @@ async def show_all_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Dividir en chunks si es muy largo
     if len(code_format) <= 4000:
         await update.message.reply_text(
-            f"📋 **BASE DE DATOS - FORMATO PARA SCRIPT**\n"
+            f"💾 **EXPORT - FORMATO PARA SCRIPT**\n"
             f"📊 Total: {len(db)} elementos\n"
             f"📝 Copia todo desde INITIAL_DATA hasta el ] final\n\n"
             f"```python\n{code_format}\n```",
@@ -499,7 +506,6 @@ async def show_all_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 current_chunk += line
         
-        # Último chunk
         if current_chunk:
             chunks.append(current_chunk.rstrip(',\n') + '\n]')
         
@@ -507,7 +513,7 @@ async def show_all_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for i, chunk in enumerate(chunks):
             if i == 0:
                 await update.message.reply_text(
-                    f"📋 **PARTE {i+1}/{len(chunks)}**\n"
+                    f"💾 **EXPORT PARTE {i+1}/{len(chunks)}**\n"
                     f"📊 Total: {len(db)} elementos\n"
                     f"📝 Copia TODAS las partes en orden\n\n"
                     f"```python\n{chunk}\n```",
@@ -515,14 +521,14 @@ async def show_all_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             elif i == len(chunks) - 1:
                 await update.message.reply_text(
-                    f"📋 **PARTE {i+1}/{len(chunks)} - FINAL**\n\n"
+                    f"💾 **EXPORT PARTE {i+1}/{len(chunks)} - FINAL**\n\n"
                     f"```python\n{chunk}\n```",
                     parse_mode='Markdown',
                     reply_markup=main_reply_markup
                 )
             else:
                 await update.message.reply_text(
-                    f"📋 **PARTE {i+1}/{len(chunks)}**\n\n"
+                    f"💾 **EXPORT PARTE {i+1}/{len(chunks)}**\n\n"
                     f"```python\n{chunk}\n```",
                     parse_mode='Markdown'
                 )
