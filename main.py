@@ -232,10 +232,10 @@ def perform_auto_commit():
 db = load_db()
 user_states = {}
 
-# Verificar auto-commit al inicio
-if should_auto_commit():
-    logger.info("Auto-commit needed, updating script...")
-    perform_auto_commit()
+# NO verificar auto-commit al inicio para evitar problemas de estabilidad
+# if should_auto_commit():
+#     logger.info("Auto-commit needed, updating script...")
+#     perform_auto_commit()
 
 # Teclado personalizado principal
 main_keyboard = [
@@ -438,12 +438,12 @@ async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 async def show_all_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Mostrar base de datos numerada para lectura fácil"""
+    """Mostrar base de datos numerada para lectura fácil - TEXTO NORMAL"""
     if not db:
         await update.message.reply_text("📭 La base de datos está vacía", reply_markup=main_reply_markup)
         return
     
-    # Formato numerado para lectura fácil
+    # Formato numerado simple, sin markdown ni código
     items_text = "\n".join([f"{i+1}. {item}" for i, item in enumerate(db)])
     
     if len(items_text) <= 4000:
@@ -452,17 +452,17 @@ async def show_all_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=main_reply_markup
         )
     else:
-        # Dividir en chunks
-        chunk_size = 3500
+        # Dividir en chunks si es muy largo
+        chunk_size = 3800
         chunks = [items_text[i:i+chunk_size] for i in range(0, len(items_text), chunk_size)]
         
-        for i, chunk in enumerate(chunks):
-            if i == 0:
-                header = f"📋 Base de datos (parte {i+1}/{len(chunks)}):\n\n"
+        for idx, chunk in enumerate(chunks):
+            if idx == 0:
+                header = f"📋 Base de datos (parte {idx+1}/{len(chunks)}):\n\n"
             else:
-                header = f"📋 Continuación (parte {i+1}/{len(chunks)}):\n\n"
+                header = f"📋 Continuación (parte {idx+1}/{len(chunks)}):\n\n"
             
-            if i == len(chunks) - 1:
+            if idx == len(chunks) - 1:
                 await update.message.reply_text(header + chunk, reply_markup=main_reply_markup)
             else:
                 await update.message.reply_text(header + chunk)
@@ -617,13 +617,15 @@ def status():
     }
 
 def run_flask():
+    """Servidor Flask más estable"""
+    port = int(os.environ.get("PORT", 10000))
+    logger.info(f"Iniciando Flask en puerto {port}")
     try:
-        port = int(os.environ.get("PORT", 10000))
-        app.run(host="0.0.0.0", port=port, debug=False)
+        app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False, threaded=True)
     except Exception as e:
-        logger.error(f"Flask error: {e}")
+        logger.error(f"Flask error crítico: {e}")
         time.sleep(5)
-        run_flask()
+        # No reintentar infinitamente, dejar que el contenedor se reinicie
 
 def schedule_checker():
     """Verificar tareas programadas"""
@@ -644,7 +646,8 @@ def main():
     
     logger.info(f"🚀 Iniciando Bot Logbook Central - DB: {len(db)} elementos")
     
-    app_bot = ApplicationBuilder().token(bot_token).job_queue(None).build()
+    # Crear aplicación con configuración más robusta
+    app_bot = ApplicationBuilder().token(bot_token).job_queue(None).connect_timeout(30).read_timeout(30).write_timeout(30).build()
     
     # Handlers
     app_bot.add_handler(CommandHandler("start", start))
@@ -667,32 +670,34 @@ def main():
         flask_thread.start()
         logger.info("🌐 Flask server iniciado")
         
-        # Iniciar verificador de auto-commit
-        schedule_thread = threading.Thread(target=schedule_checker, daemon=True)
-        schedule_thread.start()
-        logger.info("⏰ Auto-commit scheduler iniciado")
+        # NO iniciar auto-commit scheduler por ahora (puede causar inestabilidad)
+        # schedule_thread = threading.Thread(target=schedule_checker, daemon=True)
+        # schedule_thread.start()
+        # logger.info("⏰ Auto-commit scheduler iniciado")
         
-        time.sleep(3)
+        time.sleep(2)
         
     except Exception as e:
         logger.error(f"Error iniciando servicios: {e}")
     
     logger.info("🤖 Iniciando bot polling...")
     
-    # Ejecutar bot con recuperación automática
-    try:
-        app_bot.run_polling(drop_pending_updates=True)
-    except KeyboardInterrupt:
-        logger.info("Bot detenido manualmente")
-    except Exception as e:
-        logger.error(f"Error crítico en bot: {e}")
-        time.sleep(10)
-        logger.info("Reintentando iniciar bot...")
+    # Ejecutar bot con configuración más estable
+    while True:
         try:
-            app_bot.run_polling(drop_pending_updates=True)
-        except Exception as e2:
-            logger.error(f"Falló el reintento: {e2}")
-            raise
+            app_bot.run_polling(
+                drop_pending_updates=True,
+                allowed_updates=Update.ALL_TYPES,
+                pool_timeout=30
+            )
+            break
+        except KeyboardInterrupt:
+            logger.info("Bot detenido manualmente")
+            break
+        except Exception as e:
+            logger.error(f"Error en bot: {e}")
+            logger.info("Reintentando en 10 segundos...")
+            time.sleep(10)
 
 if __name__ == '__main__':
     main()
